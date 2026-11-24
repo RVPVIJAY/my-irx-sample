@@ -6,15 +6,22 @@ $ErrorActionPreference = "Stop"
 $appscan = Join-Path $env:SACLIENT_HOME "bin\appscan.bat"
 $root = Split-Path -Parent $PSScriptRoot
 
+function Invoke-AppScan {
+    param([string[]]$CmdArgs)
+    $out = & $appscan @CmdArgs 2>&1 | Out-String
+    Write-Host $out
+    if ($LASTEXITCODE -ne 0 -or $out -match "Unrecognized option|expired|re-authenticate|Error|Failed|Unable") {
+        throw "appscan $($CmdArgs[0]) failed"
+    }
+}
+
 $irx = Get-ChildItem (Join-Path $root $IrxDir) -Filter *.irx | Select-Object -First 1
 if (-not $irx) { throw "No .irx found in $IrxDir" }
 
-$loginArgs = @("api_login", "-u", $env:ASOC_KEY_ID, "-P", $env:ASOC_KEY_SECRET, "-persist", "-acceptssl")
-if ($env:APPSCAN_SERVER) { $loginArgs += @("-server", $env:APPSCAN_SERVER) }
-& $appscan @loginArgs
-if ($LASTEXITCODE -ne 0) { throw "appscan api_login failed ($LASTEXITCODE)" }
+$loginArgs = @("api_login", "-u", $env:ASOC_KEY_ID, "-P", $env:ASOC_KEY_SECRET, "-acceptssl")
+if ($env:APPSCAN_SERVER) { $loginArgs += @("-service_url", $env:APPSCAN_SERVER) }
+Invoke-AppScan $loginArgs
 
-& $appscan queue_analysis -a $env:APPSCAN_APP_ID -f $irx.FullName -n $ScanName -acceptssl
-if ($LASTEXITCODE -ne 0) { throw "appscan queue_analysis failed ($LASTEXITCODE)" }
+Invoke-AppScan @("queue_analysis", "-a", $env:APPSCAN_APP_ID, "-f", $irx.FullName, "-n", $ScanName, "-acceptssl")
 
 Write-Host "Scan submitted: $ScanName"
