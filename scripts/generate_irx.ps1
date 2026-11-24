@@ -1,17 +1,22 @@
+param(
+    [string]$ScanDir  = "target",
+    [string]$OutDir   = "irx-output",
+    [string]$IrxName  = "sample-app"
+)
 $ErrorActionPreference = "Stop"
+$appscan = Join-Path $env:SACLIENT_HOME "bin\appscan.bat"
+if (-not (Test-Path $appscan)) { throw "appscan.bat not found. Set SACLIENT_HOME to your SAClientUtil folder." }
+
 $root = Split-Path -Parent $PSScriptRoot
-Set-Location $root
+$scanPath = Join-Path $root $ScanDir
+if (-not (Test-Path $scanPath)) { throw "Maven output '$scanPath' not found. Run the Maven build first." }
 
-$out = Join-Path $root "build"
-New-Item -ItemType Directory -Force -Path $out | Out-Null
+New-Item -ItemType Directory -Force -Path (Join-Path $root $OutDir) | Out-Null
 
-$zip = Join-Path $out "app.zip"
-$irx = Join-Path $out "app.irx"
-Remove-Item $zip, $irx -ErrorAction SilentlyContinue
+Push-Location $scanPath
+try {
+    & $appscan prepare -n $IrxName -d (Join-Path $root $OutDir)
+    if ($LASTEXITCODE -ne 0) { throw "appscan prepare failed ($LASTEXITCODE)" }
+} finally { Pop-Location }
 
-# PLACEHOLDER: replace the next 2 lines with your product's real IRX export command, e.g.
-#   & "C:\Path\To\tool.exe" export --project . --format irx --output build\app.irx
-Compress-Archive -Path "src","config" -DestinationPath $zip
-Rename-Item $zip "app.irx"
-
-Write-Host "Generated: $irx"
+Get-ChildItem (Join-Path $root $OutDir) -Filter *.irx
