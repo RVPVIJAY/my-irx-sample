@@ -23,6 +23,12 @@ steps:
       publishJUnitResults: false
 
   - task: PowerShell@2
+    displayName: 'Copy pom.xml into target'
+    inputs:
+      targetType: 'inline'
+      script: Copy-Item "$(Build.SourcesDirectory)\pom.xml" "$(Build.SourcesDirectory)\target\pom.xml" -Force
+
+  - task: PowerShell@2
     displayName: 'Task 2 - Generate IRX (first run only)'
     condition: and(succeeded(), eq(variables['APPSCAN_SCAN_ID'], 'NONE'))
     inputs:
@@ -44,4 +50,22 @@ steps:
       APPSCAN_SERVER: $(APPSCAN_SERVER)
       SYSTEM_ACCESSTOKEN: $(System.AccessToken)
 
-  # Task 4 - AppScan plug-in rescan goes here (added in the next step)
+  - task: HCLAppScanOnCloud@2
+    displayName: 'Task 4 - Rescan with AppScan plug-in (not first run)'
+    condition: and(succeeded(), ne(variables['APPSCAN_SCAN_ID'], 'NONE'))
+    inputs:
+      AppSecTestService: 'appscan360-conn'
+      applications: '$(APPSCAN_APP_ID)'
+      scanname: 'sample-app-rescan-$(Build.BuildNumber)'
+      scantype: 'static'
+      rescan: true
+      scanid: '$(APPSCAN_SCAN_ID)'
+      scanloc: '$(Build.SourcesDirectory)\target'
+      scanMethod: 'IRX'
+
+  - task: PublishBuildArtifacts@1
+    displayName: 'Publish IRX (first run only)'
+    condition: and(succeeded(), eq(variables['APPSCAN_SCAN_ID'], 'NONE'))
+    inputs:
+      PathtoPublish: 'irx-output'
+      ArtifactName: 'irx'
