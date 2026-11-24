@@ -1,0 +1,7 @@
+plugin:
+  name: my-plugin
+  version: 1.0.0
+  enabled: true
+  settings:
+    endpoint: https://example.com/api
+    timeout: 30
