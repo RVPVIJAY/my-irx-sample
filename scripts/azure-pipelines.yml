@@ -8,6 +8,7 @@ pool:
 
 variables:
   - group: appscan-secrets
+  - group: appscan-state
   - name: SACLIENT_HOME
     value: C:\SAClientUtil
 
@@ -22,14 +23,16 @@ steps:
       publishJUnitResults: false
 
   - task: PowerShell@2
-    displayName: 'Task 2 - Generate IRX (appscan prepare)'
+    displayName: 'Task 2 - Generate IRX (first run only)'
+    condition: and(succeeded(), eq(variables['APPSCAN_SCAN_ID'], 'NONE'))
     inputs:
       filePath: 'scripts/generate_irx.ps1'
     env:
       SACLIENT_HOME: $(SACLIENT_HOME)
 
   - task: PowerShell@2
-    displayName: 'Task 3 - Create scan (appscan queue_analysis)'
+    displayName: 'Task 3 - Create scan and store scan ID (first run only)'
+    condition: and(succeeded(), eq(variables['APPSCAN_SCAN_ID'], 'NONE'))
     inputs:
       filePath: 'scripts/create_scan.ps1'
       arguments: '-ScanName "sample-app-build-$(Build.BuildNumber)"'
@@ -39,10 +42,6 @@ steps:
       ASOC_KEY_SECRET: $(ASOC_KEY_SECRET)
       APPSCAN_APP_ID: $(APPSCAN_APP_ID)
       APPSCAN_SERVER: $(APPSCAN_SERVER)
+      SYSTEM_ACCESSTOKEN: $(System.AccessToken)
 
-  - task: PublishBuildArtifacts@1
-    displayName: 'Publish IRX'
-    condition: succeeded()
-    inputs:
-      PathtoPublish: 'irx-output'
-      ArtifactName: 'irx'
+  # Task 4 - AppScan plug-in rescan goes here (added in the next step)
